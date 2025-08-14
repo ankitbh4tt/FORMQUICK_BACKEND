@@ -22,7 +22,6 @@ const errorHandler = (
   if (env === "development") {
     response.stack = err.stack;
   }
-
   return res.status(statusCode).json(response);
 };
 
