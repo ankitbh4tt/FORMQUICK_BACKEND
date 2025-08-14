@@ -12,10 +12,10 @@ interface RedisMessage {
 
 // Initialize Redis client (singleton)
 const redis = new Redis({
-  host: process.env.REDIS_HOST || 'redis-15685.c14.us-east-1-2.ec2.redns.redis-cloud.com',
+  host: process.env.REDIS_HOST,
   port: Number(process.env.REDIS_PORT) || 15685,
   username: process.env.REDIS_USER || 'default',
-  password: process.env.REDIS_PASSWORD || 'eoZmcUCyQSwlTEyuKfX6oVFj0EejpUe0',
+  password: process.env.REDIS_PASSWORD,
   retryStrategy: (times) => {
     console.log(`Redis retry attempt ${times}`);
     return Math.min(times * 50, 2000);
