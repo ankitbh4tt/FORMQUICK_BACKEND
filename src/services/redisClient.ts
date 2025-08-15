@@ -75,43 +75,22 @@ export async function getCache<T>(key: string): Promise<T | null> {
 
 // Add message to session
 export async function addMessage(sessionId: string, role: 'system' | 'user' | 'assistant', content: string): Promise<void> {
-  try {
-    const message: RedisMessage = { role, content };
-    await redis.rpush(`form_session:${sessionId}`, JSON.stringify(message));
-    await redis.expire(`form_session:${sessionId}`, 3600);
-    console.log(`Message added to session "${sessionId}"`);
-  } catch (err) {
-    console.error(`Error adding message to session "${sessionId}":`, err);
-    throw err;
-  }
+  console.log(`Adding message to session ${sessionId}: role=${role}`);
+  await redis.rpush(`form_session:${sessionId}`, JSON.stringify({ role, content }));
+  await redis.expire(`form_session:${sessionId}`, 3600); // 1-hour TTL
 }
 
-// Get session messages
+// Get messages for session
 export async function getMessages(sessionId: string): Promise<RedisMessage[]> {
-  try {
-    const messages = await redis.lrange(`form_session:${sessionId}`, 0, -1);
-    return messages.map((msg) => {
-      const parsed = JSON.parse(msg) as RedisMessage;
-      if (!['system', 'user', 'assistant'].includes(parsed.role)) {
-        throw new Error(`Invalid role in message: ${parsed.role}`);
-      }
-      return parsed;
-    });
-  } catch (err) {
-    console.error(`Error getting messages for session "${sessionId}":`, err);
-    throw err;
-  }
+  const messages = await redis.lrange(`form_session:${sessionId}`, 0, -1);
+  console.log(`Fetched ${messages.length} messages for session ${sessionId}`);
+  return messages.map((msg) => JSON.parse(msg));
 }
 
 // Clear session
 export async function clearSession(sessionId: string): Promise<void> {
-  try {
-    await redis.del(`form_session:${sessionId}`);
-    console.log(`Session "${sessionId}" cleared`);
-  } catch (err) {
-    console.error(`Error clearing session "${sessionId}":`, err);
-    throw err;
-  }
+  console.log(`Clearing session ${sessionId}`);
+  await redis.del(`form_session:${sessionId}`);
 }
 
 export default redis;

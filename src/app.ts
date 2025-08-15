@@ -4,8 +4,9 @@ import errorHandler from './middleware/errorHandler';
 import { clerkMiddleware } from '@clerk/express';
 import userRouter from './routes/user.routes';
 import clerkWebhookRouter from './routes/clerk.webhook';
-import cacheRouter from './routes/cache.routes';
 import aiRouter from './routes/ai.routes';
+import formRouter from './routes/form.routes';
+import responseRouter from './routes/response.routes';
 
 const app = express();
 
@@ -15,8 +16,9 @@ app.use(express.json());
 app.use(clerkMiddleware());
 
 app.use('/api/v1/users', userRouter);
-app.use('/api/v1/cache', cacheRouter);
 app.use('/api/v1/ai', aiRouter);
+app.use('/api/v1/forms', formRouter);
+app.use('/api/v1/responses', responseRouter);
 app.use(clerkWebhookRouter);
 
 app.get('/ping', (_req, res) => {
