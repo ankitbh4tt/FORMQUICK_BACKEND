@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { requireUser } from '../middleware/clerkAuth';
-import { saveForm, getFormSchemaForAmend, getPublicForm, getUserForms } from '../controllers/form.controller';
+import { saveForm, getFormSchemaForAmend, getPublicForm, getUserForms, updateForm, deleteForm } from '../controllers/form.controller';
 
 const router = express.Router();
 
@@ -14,6 +14,20 @@ router.post('/save-form', requireUser, async (req: Request, res: Response) => {
     res.json(result);
   } catch (err) {
     console.error('Save form error:', err);
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
+  }
+});
+
+// Start amend form process (protected by Clerk)
+router.post('/amend/:formId', requireUser, async (req: Request, res: Response) => {
+  try {
+    if (!req.auth.userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    const result = await getFormSchemaForAmend(req.params.formId, req.auth.userId);
+    res.json(result);
+  } catch (err) {
+    console.error('Amend form error:', err);
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
   }
 });
@@ -32,16 +46,31 @@ router.get('/all', requireUser, async (req: Request, res: Response) => {
   }
 });
 
-// Get form schema for amendment (protected by Clerk)
-router.get('/amend/:formId', requireUser, async (req: Request, res: Response) => {
+// Update form manually (protected by Clerk)
+router.put('/update/:formId', requireUser, async (req: Request, res: Response) => {
   try {
     if (!req.auth.userId) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
-    const result = await getFormSchemaForAmend(req.params.formId, req.auth.userId);
+    const result = await updateForm(req.params.formId, req.auth.userId, req.body);
     res.json(result);
   } catch (err) {
-    console.error('Get form schema error:', err);
+    console.error('Update form error:', err);
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
+  }
+});
+
+// Delete form (protected by Clerk)
+router.delete('/delete/:formId', requireUser, async (req: Request, res: Response) => {
+  
+  try {
+    if (!req.auth.userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    const result = await deleteForm(req.params.formId, req.auth.userId);
+    res.json(result);
+  } catch (err) {
+    console.error('Delete form error:', err);
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
   }
 });

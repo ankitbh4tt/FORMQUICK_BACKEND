@@ -2,7 +2,6 @@ import { v4 as uuidv4 } from 'uuid';
 import Groq from 'groq-sdk';
 import { addMessage, getMessages } from './redisClient';
 import { setTimeout } from 'timers/promises';
-import { response } from 'express';
 
 // Form field schema
 interface FormField {
@@ -90,7 +89,6 @@ export async function generateFormSchema(
         temperature: 0.2,
         max_tokens: 1000,
       });
-      console.log(completion)
       rawOutput = completion.choices[0]?.message?.content || '[]';
       console.log(`Groq response received for session: ${finalSessionId}`);
 
