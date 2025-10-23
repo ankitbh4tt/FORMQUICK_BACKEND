@@ -1,20 +1,22 @@
-import Redis from 'ioredis';
-import dotenv from 'dotenv';
+import Redis from "ioredis";
+import dotenv from "dotenv";
 
 // Load environment variables
 dotenv.config();
 
 // Message interface for Redis
 interface RedisMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
-// Initialize Redis client (singleton)
+// ----------------------
+// Redis Client Singleton
+// ----------------------
 const redis = new Redis({
   host: process.env.REDIS_HOST,
   port: Number(process.env.REDIS_PORT) || 15685,
-  username: process.env.REDIS_USER || 'default',
+  username: process.env.REDIS_USER || "default",
   password: process.env.REDIS_PASSWORD,
   retryStrategy: (times) => {
     console.log(`Redis retry attempt ${times}`);
@@ -25,72 +27,109 @@ const redis = new Redis({
 });
 
 // Connection event logging
-redis.on('connect', () => console.log('Redis TCP connection established'));
-redis.on('ready', () => console.log('Redis client ready'));
-redis.on('error', (err) => console.error('Redis Client Error:', err));
-redis.on('close', () => console.log('Redis connection closed'));
+redis.on("connect", () => console.log("🔌 Redis TCP connection established"));
+redis.on("ready", () => console.log("✅ Redis client ready"));
+redis.on("error", (err) => console.error("❌ Redis Client Error:", err));
+redis.on("close", () => console.log("⚠️ Redis connection closed"));
 
+// ----------------------
+// Initialization Function
+// ----------------------
 export async function initializeRedis(): Promise<void> {
-  if (redis.status !== 'ready') {
-    try {
-      await redis.connect();
-      console.log('Redis client initialized successfully');
-    } catch (err) {
-      console.error('Failed to initialize Redis client:', err);
-      throw err;
-    }
+  if (redis.status === "ready") {
+    console.log("ℹ️ Redis already initialized");
+    return;
   }
+
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error("Redis init timeout")),
+      5000
+    );
+
+    redis.once("ready", () => {
+      clearTimeout(timeout);
+      console.log("🚀 Redis client initialized successfully");
+      resolve();
+    });
+
+    redis.once("error", (err) => {
+      clearTimeout(timeout);
+      console.error("❌ Failed to initialize Redis client:", err);
+      reject(err);
+    });
+  });
 }
 
-// Set JSON cache with TTL
-export async function setCache<T>(key: string, value: T, ttlSeconds = 3600): Promise<void> {
+// ----------------------
+// Cache Helpers
+// ----------------------
+export async function setCache<T>(
+  key: string,
+  value: T,
+  ttlSeconds = 3600
+): Promise<void> {
   try {
-    if (redis.status !== 'ready') throw new Error('Redis client is not connected');
+    if (redis.status !== "ready")
+      throw new Error("Redis client is not connected");
+
     const serializedValue = JSON.stringify(value);
-    await redis.set(key, serializedValue, 'EX', ttlSeconds);
-    console.log(`Cache set for key "${key}" with TTL ${ttlSeconds}s`);
+    await redis.set(key, serializedValue, "EX", ttlSeconds);
+    console.log(`📝 Cache set for key "${key}" (TTL: ${ttlSeconds}s)`);
   } catch (err) {
-    console.error(`Error setting cache for key "${key}":`, err);
+    console.error(`❌ Error setting cache for key "${key}":`, err);
     throw err;
   }
 }
 
-// Get JSON cache
 export async function getCache<T>(key: string): Promise<T | null> {
   try {
-    if (redis.status !== 'ready') throw new Error('Redis client is not connected');
+    if (redis.status !== "ready")
+      throw new Error("Redis client is not connected");
+
     const value = await redis.get(key);
     if (value === null) {
-      console.log(`Cache miss for key "${key}"`);
+      console.log(`⚡ Cache miss for key "${key}"`);
       return null;
     }
+
     const deserializedValue = JSON.parse(value) as T;
-    console.log(`Cache hit for key "${key}"`);
+    console.log(`✅ Cache hit for key "${key}"`);
     return deserializedValue;
   } catch (err) {
-    console.error(`Error getting cache for key "${key}":`, err);
+    console.error(`❌ Error getting cache for key "${key}":`, err);
     throw err;
   }
 }
 
-// Add message to session
-export async function addMessage(sessionId: string, role: 'system' | 'user' | 'assistant', content: string): Promise<void> {
-  console.log(`Adding message to session ${sessionId}: role=${role}`);
-  await redis.rpush(`form_session:${sessionId}`, JSON.stringify({ role, content }));
+// ----------------------
+// Session Helpers
+// ----------------------
+export async function addMessage(
+  sessionId: string,
+  role: "system" | "user" | "assistant",
+  content: string
+): Promise<void> {
+  console.log(`💬 Adding message to session ${sessionId}: role=${role}`);
+  await redis.rpush(
+    `form_session:${sessionId}`,
+    JSON.stringify({ role, content })
+  );
   await redis.expire(`form_session:${sessionId}`, 3600); // 1-hour TTL
 }
 
-// Get messages for session
 export async function getMessages(sessionId: string): Promise<RedisMessage[]> {
   const messages = await redis.lrange(`form_session:${sessionId}`, 0, -1);
-  console.log(`Fetched ${messages.length} messages for session ${sessionId}`);
+  console.log(
+    `📥 Fetched ${messages.length} messages for session ${sessionId}`
+  );
   return messages.map((msg) => JSON.parse(msg));
 }
 
-// Clear session
 export async function clearSession(sessionId: string): Promise<void> {
-  console.log(`Clearing session ${sessionId}`);
+  console.log(`🗑️ Clearing session ${sessionId}`);
   await redis.del(`form_session:${sessionId}`);
 }
 
+// Export singleton client
 export default redis;
