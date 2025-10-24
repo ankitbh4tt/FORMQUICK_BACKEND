@@ -1,26 +1,17 @@
-# 1. Base image
-FROM node:18-alpine
-
-# 2. Set working directory
+# Build stage
+FROM node:18-alpine AS builder
 WORKDIR /app
-
-# 3. Copy package files
 COPY package*.json ./
-
-# 4. Install ALL dependencies (dev included for build)
 RUN npm ci
-
-# 5. Copy source files
 COPY . .
-
-# 6. Build TypeScript
 RUN npm run build
 
-# 7. Prune to production-only (removes dev deps to slim down image)
-RUN npm prune --production
-
-# 8. Expose port
+# Production stage
+FROM node:18-alpine AS production
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+# Copy only built artifacts from builder
+COPY --from=builder /app/dist ./dist
 EXPOSE 8080
-
-# 9. Start command
 CMD ["node", "dist/index.js"]
